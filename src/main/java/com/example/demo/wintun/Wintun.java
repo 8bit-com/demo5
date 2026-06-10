@@ -21,4 +21,8 @@ public interface Wintun extends Library {
     Pointer WintunReceivePacket(Pointer session, IntByReference packetSize);
 
     void WintunReleaseReceivePacket(Pointer session, Pointer packet);
+
+    Pointer WintunAllocateSendPacket(Pointer session, int packetSize);
+
+    void WintunSendPacket(Pointer session, Pointer packet);
 }
