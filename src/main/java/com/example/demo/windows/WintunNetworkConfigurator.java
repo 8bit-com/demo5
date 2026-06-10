@@ -19,6 +19,10 @@ public class WintunNetworkConfigurator {
         addTestRoute(interfaceIndex);
     }
 
+    public void cleanup() {
+        deleteTestRoute();
+    }
+
     private void deleteTestRoute() {
         windowsCommand.runIgnoreError(List.of(
                 "route",
