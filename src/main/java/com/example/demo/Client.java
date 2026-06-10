@@ -9,9 +9,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class Client {
     private final TestPing testPing;
+    private final ByteArrayEchoTest byteArrayEchoTest;
 
     @EventListener(ApplicationReadyEvent.class)
     public void start() {
         testPing.start();
+        byteArrayEchoTest.start();
     }
 }
