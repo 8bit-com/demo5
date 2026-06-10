@@ -1,6 +1,6 @@
 package com.example.demo.wintun;
 
-import com.example.demo.udp.UdpPacketSender;
+import com.example.demo.udp.UdpPacketTransport;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +15,7 @@ public class WintunPacketReader {
 
     private final Pointer adapter;
     private final AtomicBoolean running = new AtomicBoolean(true);
-    private final UdpPacketSender udpPacketSender = new UdpPacketSender();
+    private final UdpPacketTransport udpPacketTransport = new UdpPacketTransport(this::sendPacket);
 
     private Pointer session;
 
@@ -25,6 +25,7 @@ public class WintunPacketReader {
                 SESSION_CAPACITY
         );
 
+        udpPacketTransport.start();
         System.out.println("Wintun session started");
 
         try {
@@ -45,7 +46,7 @@ public class WintunPacketReader {
 
     public void stop() {
         running.set(false);
-        udpPacketSender.close();
+        udpPacketTransport.stop();
 
         if (session != null) {
             Wintun.INSTANCE.WintunEndSession(session);
@@ -54,7 +55,7 @@ public class WintunPacketReader {
     }
 
     private void handlePacket(byte[] packet) {
-        udpPacketSender.send(packet);
+        udpPacketTransport.send(packet);
         System.out.println("TUN packet sent to server, size=" + packet.length);
     }
 
@@ -71,6 +72,23 @@ public class WintunPacketReader {
         } finally {
             Wintun.INSTANCE.WintunReleaseReceivePacket(session, packetPointer);
         }
+    }
+
+    private void sendPacket(byte[] packet) {
+        if (session == null) {
+            return;
+        }
+
+        Pointer sendPointer = Wintun.INSTANCE.WintunAllocateSendPacket(session, packet.length);
+
+        if (sendPointer == null) {
+            System.out.println("Wintun send packet allocation failed");
+            return;
+        }
+
+        sendPointer.write(0, packet, 0, packet.length);
+        Wintun.INSTANCE.WintunSendPacket(session, sendPointer);
+        System.out.println("Server packet written to TUN, size=" + packet.length);
     }
 
     private void sleepQuietly() {
