@@ -7,6 +7,8 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketTimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class TestPing {
@@ -14,41 +16,122 @@ public class TestPing {
         try {
             String host = "80.240.23.72";
             int port = 51888;
-            int count = 10_000;
 
-            DatagramSocket socket = new DatagramSocket();
-            socket.setSoTimeout(100);
+            int socketsCount = 40;
+            int targetPps = 5000;
+            int maxTestMs = 5000;
 
             InetAddress address = InetAddress.getByName(host);
 
-            long start = System.currentTimeMillis();
+            AtomicInteger sent = new AtomicInteger();
+            AtomicInteger ok = new AtomicInteger();
+            AtomicBoolean running = new AtomicBoolean(true);
 
-            for (int i = 0; i < count; i++) {
-                byte[] data = ("PING-" + i).getBytes();
-                socket.send(new DatagramPacket(data, data.length, address, port));
+            DatagramSocket[] sockets = new DatagramSocket[socketsCount];
+
+            for (int i = 0; i < socketsCount; i++) {
+                sockets[i] = new DatagramSocket();
+                sockets[i].setSoTimeout(100);
+                sockets[i].setSendBufferSize(1024 * 1024);
+                sockets[i].setReceiveBufferSize(1024 * 1024);
             }
 
-            int ok = 0;
-            long receiveUntil = System.currentTimeMillis() + 5000;
+            long startMs = System.currentTimeMillis();
 
-            while (System.currentTimeMillis() < receiveUntil) {
-                try {
-                    DatagramPacket response = new DatagramPacket(new byte[2048], 2048);
-                    socket.receive(response);
-                    ok++;
-                } catch (SocketTimeoutException ignored) {
+            Thread[] receivers = new Thread[socketsCount];
+
+            for (int i = 0; i < socketsCount; i++) {
+                DatagramSocket socket = sockets[i];
+
+                receivers[i] = new Thread(() -> {
+                    byte[] buf = new byte[2048];
+
+                    while (running.get()) {
+                        try {
+                            DatagramPacket p = new DatagramPacket(buf, buf.length);
+                            socket.receive(p);
+                            ok.incrementAndGet();
+                        } catch (SocketTimeoutException ignored) {
+                        } catch (Exception ignored) {
+                            return;
+                        }
+                    }
+                });
+
+                receivers[i].start();
+            }
+
+            Thread sender = new Thread(() -> {
+                int i = 0;
+
+                long intervalNs = 1_000_000_000L / targetPps;
+                long nextSendNs = System.nanoTime();
+
+                while (System.currentTimeMillis() - startMs < maxTestMs) {
+                    try {
+                        DatagramSocket socket = sockets[i % socketsCount];
+
+                        byte[] data = ("PING-" + i).getBytes();
+
+                        socket.send(new DatagramPacket(
+                                data,
+                                data.length,
+                                address,
+                                port
+                        ));
+
+                        sent.incrementAndGet();
+                        i++;
+
+                        nextSendNs += intervalNs;
+
+                        while (System.nanoTime() < nextSendNs) {
+                            Thread.onSpinWait();
+                        }
+
+                    } catch (Exception ignored) {
+                    }
                 }
+            });
+
+            sender.start();
+            sender.join();
+
+            Thread.sleep(1000);
+            running.set(false);
+
+            for (DatagramSocket socket : sockets) {
+                socket.close();
             }
 
-            long time = System.currentTimeMillis() - start;
-            int lost = count - ok;
+            for (Thread receiver : receivers) {
+                receiver.join();
+            }
 
-            System.out.println("TEST PING: sent=" + count + ", ok=" + ok + ", lost="
-                    + lost + ", timeMs=" + time + ", sendRps=" + (count * 1000L / Math.max(1, time)) + ", lossPercent=" + (lost * 100.0 / count));
+            long timeMs = System.currentTimeMillis() - startMs;
 
-            socket.close();
+            int s = sent.get();
+            int r = ok.get();
+            int lost = s - r;
+
+            System.out.println("sockets=" + socketsCount);
+            System.out.println("targetPps=" + targetPps);
+            System.out.println("sent=" + s);
+            System.out.println("ok=" + r);
+            System.out.println("lost=" + lost);
+            System.out.println("timeMs=" + timeMs);
+            System.out.println("sendRps=" + (s * 1000L / Math.max(1, timeMs)));
+            System.out.println("okRps=" + (r * 1000L / Math.max(1, timeMs)));
+            System.out.println("lossPercent=" + (lost * 100.0 / Math.max(1, s)));
+
+//            System.out.println("TEST PING: " + "sockets=" + socketsCount+ ", sent=" + s + ", ok=" + r + ", lost="
+//                    + (s - r) + ", timeMs=" + timeMs + ", sendRps=" + (s * 1000L / Math.max(1, timeMs)) + ", okRps="
+//                    + (r * 1000L / Math.max(1, timeMs)) + ", lossPercent=" + ((s - r) * 100.0 / Math.max(1, s)));
+
         } catch (IOException e) {
             System.out.println(e.getMessage());
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
 
     }
