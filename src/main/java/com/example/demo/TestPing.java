@@ -114,10 +114,10 @@ public class TestPing {
             int r = ok.get();
             int lost = s - r;
 
-            System.out.println("TEST PING: " +  "sockets=" + socketsCount + "targetPps=" + targetPps
-                    + "sent=" + s + "ok=" + r + "lost=" + lost + "timeMs=" + timeMs
-                    + "sendRps=" + (s * 1000L / Math.max(1, timeMs)) + "okRps=" + (r * 1000L / Math.max(1, timeMs))
-                    + "lossPercent=" + (lost * 100.0 / Math.max(1, s)));
+            System.out.println("TEST PING: " +  ", sockets=" + socketsCount + ", targetPps=" + targetPps
+                    + ", sent=" + s + ", ok=" + r + ", lost=" + lost + ", timeMs=" + timeMs
+                    + ", sendRps=" + (s * 1000L / Math.max(1, timeMs)) + ", okRps=" + (r * 1000L / Math.max(1, timeMs))
+                    + ", lossPercent=" + (lost * 100.0 / Math.max(1, s)));
 
         } catch (IOException e) {
             System.out.println(e.getMessage());
