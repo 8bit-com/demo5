@@ -15,34 +15,61 @@ public class WintunAdapterTest {
 
     private final WintunNetworkConfigurator networkConfigurator = new WintunNetworkConfigurator();
 
+    private Pointer adapter;
+    private WintunPacketReader packetReader;
+
     public void start() {
-        Pointer adapter = createAdapter();
+        adapter = createAdapter();
 
         networkConfigurator.configure();
-        startReader(adapter);
+        startReader();
+        addShutdownCleanup();
     }
 
     private Pointer createAdapter() {
-        Pointer adapter = Wintun.INSTANCE.WintunCreateAdapter(
+        Pointer createdAdapter = Wintun.INSTANCE.WintunCreateAdapter(
                 new WString(ADAPTER_NAME),
                 new WString(TUNNEL_TYPE),
                 Pointer.NULL
         );
 
-        if (adapter == null) {
+        if (createdAdapter == null) {
             throw new IllegalStateException("Wintun adapter was not created");
         }
 
         System.out.println("Wintun adapter created: " + ADAPTER_NAME);
-        return adapter;
+        return createdAdapter;
     }
 
-    private void startReader(Pointer adapter) {
+    private void startReader() {
+        packetReader = new WintunPacketReader(adapter);
+
         Thread readerThread = new Thread(
-                new WintunPacketReader(adapter)::readLoop,
+                packetReader::readLoop,
                 "wintun-reader"
         );
 
         readerThread.start();
+    }
+
+    private void addShutdownCleanup() {
+        Runtime.getRuntime().addShutdownHook(new Thread(this::cleanup, "wintun-cleanup"));
+    }
+
+    private void cleanup() {
+        System.out.println("Wintun cleanup started");
+
+        if (packetReader != null) {
+            packetReader.stop();
+        }
+
+        networkConfigurator.cleanup();
+
+        if (adapter != null) {
+            Wintun.INSTANCE.WintunCloseAdapter(adapter);
+            adapter = null;
+        }
+
+        System.out.println("Wintun cleanup finished");
     }
 }
