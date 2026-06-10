@@ -1,5 +1,6 @@
 package com.example.demo.windows;
 
+import java.util.Arrays;
 import java.util.List;
 
 public class WintunNetworkConfigurator {
@@ -12,8 +13,18 @@ public class WintunNetworkConfigurator {
     private final WindowsCommand windowsCommand = new WindowsCommand();
 
     public void configure() {
+        deleteTestRoute();
         setAddress();
-        addTestRoute();
+        int interfaceIndex = findInterfaceIndex();
+        addTestRoute(interfaceIndex);
+    }
+
+    private void deleteTestRoute() {
+        windowsCommand.runIgnoreError(List.of(
+                "route",
+                "delete",
+                TEST_ROUTE
+        ));
     }
 
     private void setAddress() {
@@ -30,14 +41,38 @@ public class WintunNetworkConfigurator {
         ));
     }
 
-    private void addTestRoute() {
+    private int findInterfaceIndex() {
+        String output = windowsCommand.run(List.of(
+                "netsh",
+                "interface",
+                "ipv4",
+                "show",
+                "interfaces"
+        ));
+
+        return Arrays.stream(output.split("\\R"))
+                .map(String::trim)
+                .filter(line -> line.endsWith(ADAPTER_NAME))
+                .map(this::parseInterfaceIndex)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Interface not found: " + ADAPTER_NAME));
+    }
+
+    private int parseInterfaceIndex(String line) {
+        String[] parts = line.split("\\s+");
+        return Integer.parseInt(parts[0]);
+    }
+
+    private void addTestRoute(int interfaceIndex) {
         windowsCommand.run(List.of(
                 "route",
                 "add",
                 TEST_ROUTE,
                 "mask",
                 "255.255.255.255",
-                CLIENT_IP
+                "0.0.0.0",
+                "if",
+                String.valueOf(interfaceIndex)
         ));
     }
 }
