@@ -1,5 +1,6 @@
 package com.example.demo.wintun;
 
+import com.example.demo.ip.IcmpEchoReplyBuilder;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
 import lombok.RequiredArgsConstructor;
@@ -11,9 +12,12 @@ public class WintunPacketReader {
 
     private static final int SESSION_CAPACITY = 4 * 1024 * 1024;
     private static final int EMPTY_READ_SLEEP_MS = 10;
+    private static final String TEST_ADDRESS = "10.8.0.1";
 
     private final Pointer adapter;
     private final AtomicBoolean running = new AtomicBoolean(true);
+    private final IcmpEchoReplyBuilder icmpEchoReplyBuilder = new IcmpEchoReplyBuilder(TEST_ADDRESS);
+
     private Pointer session;
 
     public void readLoop() {
@@ -33,7 +37,7 @@ public class WintunPacketReader {
                     continue;
                 }
 
-                System.out.println("TUN packet received, size=" + packet.length);
+                handlePacket(packet);
             }
         } finally {
             stop();
@@ -49,6 +53,18 @@ public class WintunPacketReader {
         }
     }
 
+    private void handlePacket(byte[] packet) {
+        byte[] reply = icmpEchoReplyBuilder.buildReply(packet);
+
+        if (reply == null) {
+            System.out.println("TUN packet received, size=" + packet.length);
+            return;
+        }
+
+        sendPacket(reply);
+        System.out.println("ICMP echo reply sent, size=" + reply.length);
+    }
+
     private byte[] readPacket(Pointer session) {
         IntByReference packetSize = new IntByReference();
         Pointer packetPointer = Wintun.INSTANCE.WintunReceivePacket(session, packetSize);
@@ -62,6 +78,18 @@ public class WintunPacketReader {
         } finally {
             Wintun.INSTANCE.WintunReleaseReceivePacket(session, packetPointer);
         }
+    }
+
+    private void sendPacket(byte[] packet) {
+        Pointer sendPointer = Wintun.INSTANCE.WintunAllocateSendPacket(session, packet.length);
+
+        if (sendPointer == null) {
+            System.out.println("Wintun send packet allocation failed");
+            return;
+        }
+
+        sendPointer.write(0, packet, 0, packet.length);
+        Wintun.INSTANCE.WintunSendPacket(session, sendPointer);
     }
 
     private void sleepQuietly() {
