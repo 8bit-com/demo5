@@ -114,19 +114,10 @@ public class TestPing {
             int r = ok.get();
             int lost = s - r;
 
-            System.out.println("sockets=" + socketsCount);
-            System.out.println("targetPps=" + targetPps);
-            System.out.println("sent=" + s);
-            System.out.println("ok=" + r);
-            System.out.println("lost=" + lost);
-            System.out.println("timeMs=" + timeMs);
-            System.out.println("sendRps=" + (s * 1000L / Math.max(1, timeMs)));
-            System.out.println("okRps=" + (r * 1000L / Math.max(1, timeMs)));
-            System.out.println("lossPercent=" + (lost * 100.0 / Math.max(1, s)));
-
-//            System.out.println("TEST PING: " + "sockets=" + socketsCount+ ", sent=" + s + ", ok=" + r + ", lost="
-//                    + (s - r) + ", timeMs=" + timeMs + ", sendRps=" + (s * 1000L / Math.max(1, timeMs)) + ", okRps="
-//                    + (r * 1000L / Math.max(1, timeMs)) + ", lossPercent=" + ((s - r) * 100.0 / Math.max(1, s)));
+            System.out.println("TEST PING: " +  "sockets=" + socketsCount + "targetPps=" + targetPps
+                    + "sent=" + s + "ok=" + r + "lost=" + lost + "timeMs=" + timeMs
+                    + "sendRps=" + (s * 1000L / Math.max(1, timeMs)) + "okRps=" + (r * 1000L / Math.max(1, timeMs))
+                    + "lossPercent=" + (lost * 100.0 / Math.max(1, s)));
 
         } catch (IOException e) {
             System.out.println(e.getMessage());
