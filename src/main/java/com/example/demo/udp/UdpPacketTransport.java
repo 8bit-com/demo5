@@ -12,7 +12,7 @@ import java.util.function.Consumer;
 public class UdpPacketTransport {
 
     private static final String SERVER_HOST = "80.240.23.72";
-    private static final int SERVER_PORT = 51888;
+    private static final int SERVER_PORT = 51889;
     private static final int BUFFER_SIZE = 2048;
     private static final int RECEIVE_TIMEOUT_MS = 100;
 
@@ -29,7 +29,7 @@ public class UdpPacketTransport {
             socket.setSoTimeout(RECEIVE_TIMEOUT_MS);
             running = true;
 
-            Thread receiverThread = new Thread(this::receiveLoop, "udp-server-receiver");
+            Thread receiverThread = new Thread(this::receiveLoop, "vpn-udp-receiver");
             receiverThread.start();
         } catch (Exception e) {
             throw new RuntimeException(e);
