@@ -10,10 +10,12 @@ import lombok.RequiredArgsConstructor;
 public class Client {
     private final TestPing testPing;
     private final ByteArrayEchoTest byteArrayEchoTest;
+    private final WintunAdapterTest wintunAdapterTest;
 
     @EventListener(ApplicationReadyEvent.class)
     public void start() {
         testPing.start();
         byteArrayEchoTest.start();
+        wintunAdapterTest.start();
     }
 }
