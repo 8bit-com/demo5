@@ -4,6 +4,8 @@ import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
 import lombok.RequiredArgsConstructor;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 @RequiredArgsConstructor
 public class WintunPacketReader {
 
@@ -11,9 +13,11 @@ public class WintunPacketReader {
     private static final int EMPTY_READ_SLEEP_MS = 10;
 
     private final Pointer adapter;
+    private final AtomicBoolean running = new AtomicBoolean(true);
+    private Pointer session;
 
     public void readLoop() {
-        Pointer session = Wintun.INSTANCE.WintunStartSession(
+        session = Wintun.INSTANCE.WintunStartSession(
                 adapter,
                 SESSION_CAPACITY
         );
@@ -21,7 +25,7 @@ public class WintunPacketReader {
         System.out.println("Wintun session started");
 
         try {
-            while (true) {
+            while (running.get()) {
                 byte[] packet = readPacket(session);
 
                 if (packet == null) {
@@ -32,7 +36,16 @@ public class WintunPacketReader {
                 System.out.println("TUN packet received, size=" + packet.length);
             }
         } finally {
+            stop();
+        }
+    }
+
+    public void stop() {
+        running.set(false);
+
+        if (session != null) {
             Wintun.INSTANCE.WintunEndSession(session);
+            session = null;
         }
     }
 
