@@ -9,8 +9,6 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class Client {
 
-    private static final boolean START_WINTUN = false;
-
     private final TestPing testPing;
     private final ByteArrayEchoTest byteArrayEchoTest;
     private final WintunAdapterTest wintunAdapterTest;
@@ -19,9 +17,6 @@ public class Client {
     public void start() {
         testPing.start();
         byteArrayEchoTest.start();
-
-        if (START_WINTUN) {
-            wintunAdapterTest.start();
-        }
+        wintunAdapterTest.start();
     }
 }
