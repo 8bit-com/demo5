@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.SocketTimeoutException;
 import java.security.SecureRandom;
 import java.util.Arrays;
 
@@ -19,26 +20,30 @@ public class ByteArrayEchoTest {
     private final SecureRandom random = new SecureRandom();
 
     public void start() {
-        try {
-            testSize(64);
-            testSize(256);
-            testSize(512);
-            testSize(1024);
-            testSize(1400);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        testSize(64);
+        testSize(256);
+        testSize(512);
+        testSize(1024);
+        testSize(1200);
+        testSize(1300);
+        testSize(1400);
     }
 
-    private void testSize(int size) throws Exception {
-        byte[] sentData = randomBytes(size);
-        byte[] receivedData = sendAndReceive(sentData);
+    private void testSize(int size) {
+        try {
+            byte[] sentData = randomBytes(size);
+            byte[] receivedData = sendAndReceive(sentData);
 
-        System.out.println(
-                "BYTE TEST: size=" + size +
-                        ", received=" + receivedData.length +
-                        ", equals=" + Arrays.equals(sentData, receivedData)
-        );
+            System.out.println(
+                    "BYTE TEST: size=" + size +
+                            ", received=" + receivedData.length +
+                            ", equals=" + Arrays.equals(sentData, receivedData)
+            );
+        } catch (SocketTimeoutException e) {
+            System.out.println("BYTE TEST: size=" + size + ", timeout=true");
+        } catch (Exception e) {
+            System.out.println("BYTE TEST: size=" + size + ", error=" + e.getMessage());
+        }
     }
 
     private byte[] randomBytes(int size) {
