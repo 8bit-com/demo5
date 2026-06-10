@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 
 public class WindowsCommand {
 
-    public void run(List<String> command) {
+    public String run(List<String> command) {
         try {
             Process process = new ProcessBuilder(command)
                     .redirectErrorStream(true)
@@ -23,8 +23,19 @@ public class WindowsCommand {
             if (!output.isBlank()) {
                 System.out.println(output);
             }
+
+            return output;
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    public void runIgnoreError(List<String> command) {
+        try {
+            run(command);
+        } catch (Exception e) {
+            System.out.println("COMMAND IGNORED ERROR: " + String.join(" ", command));
+            System.out.println(e.getMessage());
         }
     }
 
