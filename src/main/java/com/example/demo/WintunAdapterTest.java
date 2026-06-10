@@ -4,7 +4,6 @@ import com.example.demo.wintun.Wintun;
 import com.example.demo.wintun.WintunPacketReader;
 import com.sun.jna.Pointer;
 import com.sun.jna.WString;
-import com.sun.jna.platform.win32.WinNT.HANDLE;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -14,7 +13,7 @@ public class WintunAdapterTest {
     private static final String TUNNEL_TYPE = "Demo5";
 
     public void start() {
-        HANDLE adapter = Wintun.INSTANCE.WintunCreateAdapter(
+        Pointer adapter = Wintun.INSTANCE.WintunCreateAdapter(
                 new WString(ADAPTER_NAME),
                 new WString(TUNNEL_TYPE),
                 Pointer.NULL
