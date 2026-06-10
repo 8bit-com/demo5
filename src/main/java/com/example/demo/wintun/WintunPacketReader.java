@@ -1,8 +1,6 @@
 package com.example.demo.wintun;
 
 import com.sun.jna.Pointer;
-import com.sun.jna.platform.win32.WinDef.DWORD;
-import com.sun.jna.platform.win32.WinNT.HANDLE;
 import com.sun.jna.ptr.IntByReference;
 import lombok.RequiredArgsConstructor;
 
@@ -12,12 +10,12 @@ public class WintunPacketReader {
     private static final int SESSION_CAPACITY = 4 * 1024 * 1024;
     private static final int EMPTY_READ_SLEEP_MS = 10;
 
-    private final HANDLE adapter;
+    private final Pointer adapter;
 
     public void readLoop() {
-        HANDLE session = Wintun.INSTANCE.WintunStartSession(
+        Pointer session = Wintun.INSTANCE.WintunStartSession(
                 adapter,
-                new DWORD(SESSION_CAPACITY)
+                SESSION_CAPACITY
         );
 
         System.out.println("Wintun session started");
@@ -38,7 +36,7 @@ public class WintunPacketReader {
         }
     }
 
-    private byte[] readPacket(HANDLE session) {
+    private byte[] readPacket(Pointer session) {
         IntByReference packetSize = new IntByReference();
         Pointer packetPointer = Wintun.INSTANCE.WintunReceivePacket(session, packetSize);
 
