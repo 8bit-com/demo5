@@ -76,7 +76,7 @@ public class WintunTcpForwarder {
 
         // Закрываем Wintun сессию, если она была открыта.
         if (wintunSession != null) {
-            Wintun.INSTANCE.WintunEndSession(getRawSessionPointer());
+            wintunSession.close();
             wintunSession = null;
         }
     }
@@ -121,12 +121,6 @@ public class WintunTcpForwarder {
             // Записываем пакет в Wintun, то есть отдаём его Windows.
             wintunSession.writePacket(packetFromServer);
         }
-    }
-
-    // Возвращает raw pointer Wintun сессии для закрытия.
-    private Pointer getRawSessionPointer() {
-        // Получаем raw pointer через reflection не нужно, поэтому используем старый прямой вариант нельзя.
-        throw new IllegalStateException("Raw Wintun session pointer is not exposed");
     }
 
     // Спим без лишнего шума.
