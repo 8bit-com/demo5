@@ -2,7 +2,7 @@ package com.example.demo;
 
 import com.example.demo.windows.WintunNetworkConfigurator;
 import com.example.demo.wintun.Wintun;
-import com.example.demo.wintun.WintunPacketReader;
+import com.example.demo.wintun.WintunTcpForwarder;
 import com.sun.jna.Pointer;
 import com.sun.jna.WString;
 import org.springframework.stereotype.Service;
@@ -16,13 +16,13 @@ public class WintunAdapterTest {
     private final WintunNetworkConfigurator networkConfigurator = new WintunNetworkConfigurator();
 
     private Pointer adapter;
-    private WintunPacketReader packetReader;
+    private WintunTcpForwarder tcpForwarder;
 
     public void start() {
         adapter = createAdapter();
 
         networkConfigurator.configure();
-        startReader();
+        startForwarder();
         addShutdownCleanup();
     }
 
@@ -41,15 +41,15 @@ public class WintunAdapterTest {
         return createdAdapter;
     }
 
-    private void startReader() {
-        packetReader = new WintunPacketReader(adapter);
+    private void startForwarder() {
+        tcpForwarder = new WintunTcpForwarder(adapter);
 
-        Thread readerThread = new Thread(
-                packetReader::readLoop,
-                "wintun-reader"
+        Thread forwarderThread = new Thread(
+                tcpForwarder::start,
+                "wintun-tcp-forwarder"
         );
 
-        readerThread.start();
+        forwarderThread.start();
     }
 
     private void addShutdownCleanup() {
@@ -59,8 +59,8 @@ public class WintunAdapterTest {
     private void cleanup() {
         System.out.println("Wintun cleanup started");
 
-        if (packetReader != null) {
-            packetReader.stop();
+        if (tcpForwarder != null) {
+            tcpForwarder.stop();
         }
 
         networkConfigurator.cleanup();
