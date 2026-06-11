@@ -11,7 +11,7 @@ import java.util.function.Consumer;
 public class TcpPacketTransport {
 
     private static final String HOST = "80.240.23.72";
-    private static final int PORT = 51891;
+    private static final int PORT = 51890;
     private static final int MAX_PACKET_SIZE = 1200;
 
     private final Consumer<byte[]> packetConsumer;
