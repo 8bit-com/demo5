@@ -16,6 +16,9 @@ public class WintunTcpForwarder {
     // Пауза, если Wintun сейчас не дал пакет.
     private static final int EMPTY_READ_SLEEP_MS = 10;
 
+    // Пауза перед повторным подключением TCP.
+    private static final int TCP_RECONNECT_SLEEP_MS = 1000;
+
     // Номер IP протокола ICMP.
     private static final int ICMP_PROTOCOL = 1;
 
@@ -90,15 +93,17 @@ public class WintunTcpForwarder {
 
             // Если пакета сейчас нет, немного ждём и продолжаем.
             if (packetFromWindows == null) {
-                sleepQuietly();
+                sleepQuietly(EMPTY_READ_SLEEP_MS);
                 continue;
             }
 
             // Если это ping request, печатаем его.
             printPing("CLIENT PING REQUEST", packetFromWindows, ICMP_ECHO_REQUEST);
 
-            // Отправляем пакет на сервер.
-            tcpTransport.sendPacket(packetFromWindows);
+            // Если TCP сейчас жив, отправляем пакет на сервер.
+            if (tcpTransport.isConnected()) {
+                tcpTransport.sendPacket(packetFromWindows);
+            }
         }
     }
 
@@ -106,13 +111,19 @@ public class WintunTcpForwarder {
     private void copyTcpToWintun() {
         // Работаем, пока клиент не остановлен.
         while (running.get()) {
+            // Если TCP соединения нет, пробуем переподключиться и не останавливаем Wintun.
+            if (!tcpTransport.isConnected()) {
+                reconnectTcpQuietly();
+                continue;
+            }
+
             // Читаем один IP пакет от сервера.
             byte[] packetFromServer = tcpTransport.readPacket();
 
-            // Если пакет не прочитан, останавливаем пересылку.
+            // Если пакет не прочитан, TCP уже закрыт внутри TcpPacketTransport. Wintun не останавливаем.
             if (packetFromServer == null) {
-                stop();
-                return;
+                sleepQuietly(TCP_RECONNECT_SLEEP_MS);
+                continue;
             }
 
             // Если это ping reply, печатаем его.
@@ -123,11 +134,25 @@ public class WintunTcpForwarder {
         }
     }
 
+    // Пробует переподключить TCP без остановки Wintun.
+    private void reconnectTcpQuietly() {
+        try {
+            // Ждём перед новой попыткой, чтобы не крутить CPU.
+            sleepQuietly(TCP_RECONNECT_SLEEP_MS);
+
+            // Пытаемся снова подключиться к серверу.
+            tcpTransport.connect();
+        } catch (Exception e) {
+            // Если сервер пока недоступен, просто попробуем позже.
+            System.out.println("TCP reconnect failed: " + e.getMessage());
+        }
+    }
+
     // Спим без лишнего шума.
-    private void sleepQuietly() {
+    private void sleepQuietly(int millis) {
         try {
             // Делаем короткую паузу.
-            Thread.sleep(EMPTY_READ_SLEEP_MS);
+            Thread.sleep(millis);
         } catch (InterruptedException e) {
             // Восстанавливаем флаг прерывания потока.
             Thread.currentThread().interrupt();
