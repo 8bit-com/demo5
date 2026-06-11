@@ -7,7 +7,7 @@ import com.sun.jna.ptr.IntByReference;
 public class WintunSession {
 
     // Указатель на открытую Wintun сессию.
-    private final Pointer session;
+    private Pointer session;
 
     // Создаём объект вокруг уже открытой Wintun сессии.
     public WintunSession(Pointer session) {
@@ -17,6 +17,11 @@ public class WintunSession {
 
     // Читаем один IP пакет из Wintun адаптера.
     public byte[] readPacket() {
+        // Если сессия уже закрыта, читать нечего.
+        if (session == null) {
+            return null;
+        }
+
         // Создаём переменную, куда Wintun запишет размер пакета.
         IntByReference packetSize = new IntByReference();
 
@@ -39,6 +44,11 @@ public class WintunSession {
 
     // Записываем один IP пакет обратно в Wintun адаптер.
     public boolean writePacket(byte[] packet) {
+        // Если сессия уже закрыта, писать некуда.
+        if (session == null) {
+            return false;
+        }
+
         // Просим Wintun выделить native буфер под пакет.
         Pointer sendPointer = Wintun.INSTANCE.WintunAllocateSendPacket(session, packet.length);
 
@@ -56,5 +66,19 @@ public class WintunSession {
 
         // Сообщаем вызывающему коду, что запись выполнена.
         return true;
+    }
+
+    // Закрываем Wintun сессию.
+    public void close() {
+        // Если сессия уже закрыта, ничего не делаем.
+        if (session == null) {
+            return;
+        }
+
+        // Закрываем Wintun сессию.
+        Wintun.INSTANCE.WintunEndSession(session);
+
+        // Сбрасываем указатель, чтобы не закрыть сессию второй раз.
+        session = null;
     }
 }
