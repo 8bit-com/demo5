@@ -20,11 +20,10 @@ public class TestPing {
 
             for (int i = 0; i < 1000; i++) {
                 send(socket, i);
-
-                receive(socket);
             }
 
-            socket.close();
+            new Thread(() -> receive(socket)).start();
+
         } catch (IOException e) {
             System.out.println(e.getMessage());
         }
@@ -35,14 +34,17 @@ public class TestPing {
         System.out.println("PING sent " + i);
     }
 
-    private void receive(DatagramSocket socket) throws IOException {
+    private void receive(DatagramSocket socket) {
         byte[] buffer = new byte[1024];
-
-        DatagramPacket response = new DatagramPacket(buffer, buffer.length);
-
-        socket.receive(response);
-
-        printResponse(response);
+        while (true) {
+            try {
+                DatagramPacket response = new DatagramPacket(buffer, buffer.length);
+                socket.receive(response);
+                printResponse(response);
+            } catch (IOException e) {
+                System.out.println(e.getMessage());
+            }
+        }
     }
 
     private void printResponse(DatagramPacket response) {
