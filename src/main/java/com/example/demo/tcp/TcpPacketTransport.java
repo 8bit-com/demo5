@@ -13,6 +13,7 @@ public class TcpPacketTransport {
     private static final String HOST = "80.240.23.72";
     private static final int PORT = 51890;
     private static final int MAX_PACKET_SIZE = 1200;
+    private static final int FRAME_VPN = 2;
 
     private final Consumer<byte[]> packetConsumer;
 
@@ -50,6 +51,7 @@ public class TcpPacketTransport {
         }
 
         try {
+            output.writeByte(FRAME_VPN);
             output.writeInt(packet.length);
             output.write(packet);
             output.flush();
@@ -73,7 +75,14 @@ public class TcpPacketTransport {
     private void receiveLoop() {
         while (running) {
             try {
+                int frameType = input.readUnsignedByte();
                 int size = input.readInt();
+
+                if (frameType != FRAME_VPN) {
+                    System.out.println("TCP VPN wrong frame type: " + frameType);
+                    stop();
+                    return;
+                }
 
                 if (size <= 0 || size > MAX_PACKET_SIZE) {
                     stop();
