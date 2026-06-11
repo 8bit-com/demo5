@@ -13,7 +13,6 @@ public class TcpPacketTransport {
     private static final String HOST = "80.240.23.72";
     private static final int PORT = 51890;
     private static final int MAX_PACKET_SIZE = 1200;
-    private static final int TIMEOUT_MS = 5000;
 
     private final Consumer<byte[]> packetConsumer;
 
@@ -25,7 +24,6 @@ public class TcpPacketTransport {
     public void start() {
         try {
             socket = new Socket(HOST, PORT);
-            socket.setSoTimeout(TIMEOUT_MS);
             socket.setTcpNoDelay(true);
 
             input = new DataInputStream(socket.getInputStream());
@@ -40,6 +38,10 @@ public class TcpPacketTransport {
     }
 
     public synchronized void send(byte[] packet) {
+        if (!running || socket == null || socket.isClosed()) {
+            return;
+        }
+
         if (packet.length > MAX_PACKET_SIZE) {
             System.out.println("TCP packet skipped, size=" + packet.length);
             return;
@@ -50,7 +52,8 @@ public class TcpPacketTransport {
             output.write(packet);
             output.flush();
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            System.out.println("TCP packet send error: " + e.getMessage());
+            stop();
         }
     }
 
