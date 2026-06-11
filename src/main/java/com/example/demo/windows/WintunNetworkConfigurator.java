@@ -15,31 +15,28 @@ public class WintunNetworkConfigurator {
     // Маска VPN сети.
     private static final String MASK = "255.255.255.0";
 
-    // IP сервера внутри VPN сети, который должен уходить через Wintun.
+    // IP сервера внутри VPN сети.
     private static final String SERVER_VPN_IP = "10.8.0.1";
 
     // Запускает Windows команды.
     private final WindowsCommand windowsCommand = new WindowsCommand();
 
-    // Полностью настраивает адаптер перед запуском пересылки пакетов.
+    // Настраивает адрес и маршрут Wintun адаптера.
     public void configure() {
         // Удаляем старый маршрут, если он остался после прошлого запуска.
         deleteServerRoute();
 
-        // Включаем Wintun интерфейс.
-        enableAdapter();
-
-        // Назначаем Wintun адаптеру IP адрес.
+        // Назначаем Wintun адаптеру IP адрес. Логику не меняем: это было и раньше.
         setAddress();
 
         // Находим Windows index Wintun интерфейса.
         int interfaceIndex = findInterfaceIndex();
 
-        // Добавляем маршрут до VPN IP сервера через Wintun интерфейс.
+        // Добавляем маршрут до 10.8.0.1 через Wintun. Логику маршрута не меняем.
         addServerRoute(interfaceIndex);
     }
 
-    // Чистит маршрут при остановке клиента.
+    // Удаляет маршрут при остановке клиента.
     public void cleanup() {
         // Удаляем маршрут до VPN IP сервера.
         deleteServerRoute();
@@ -52,19 +49,6 @@ public class WintunNetworkConfigurator {
                 "route",
                 "delete",
                 SERVER_VPN_IP
-        ));
-    }
-
-    // Включает Wintun интерфейс.
-    private void enableAdapter() {
-        // netsh interface set interface name=Demo5Vpn admin=enabled
-        windowsCommand.runIgnoreError(List.of(
-                "netsh",
-                "interface",
-                "set",
-                "interface",
-                "name=" + ADAPTER_NAME,
-                "admin=enabled"
         ));
     }
 
