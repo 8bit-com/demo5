@@ -28,12 +28,20 @@ public class TcpPacketTransport {
     // Поток записи в TCP сокет.
     private DataOutputStream output;
 
-    // Флаг, что транспорт сейчас работает.
-    private volatile boolean running;
+    // Флаг, что транспорт сейчас подключен.
+    private volatile boolean connected;
 
     // Подключаемся к серверу.
-    public void connect() {
+    public synchronized void connect() {
+        // Если уже подключены, второй раз не подключаемся.
+        if (isConnected()) {
+            return;
+        }
+
         try {
+            // Закрываем старый сокет, если он остался после ошибки.
+            close();
+
             // Открываем TCP соединение до VPS сервера.
             socket = new Socket(HOST, PORT);
 
@@ -46,21 +54,30 @@ public class TcpPacketTransport {
             // Создаём поток записи пакетов на сервер.
             output = new DataOutputStream(socket.getOutputStream());
 
-            // Помечаем транспорт как рабочий.
-            running = true;
+            // Помечаем транспорт как подключенный.
+            connected = true;
 
             // Пишем понятный лог подключения.
             System.out.println("TCP VPN connected to " + HOST + ":" + PORT);
         } catch (Exception e) {
-            // Если подключение не удалось, останавливаем запуск клиента.
+            // Закрываем всё, если подключение не удалось.
+            close();
+
+            // Пробрасываем ошибку наружу, чтобы вызывающий код мог попробовать позже.
             throw new RuntimeException(e);
         }
+    }
+
+    // Проверяет, есть ли сейчас живое TCP соединение.
+    public boolean isConnected() {
+        // Возвращаем true только если флаг стоит и сокет открыт.
+        return connected && socket != null && !socket.isClosed();
     }
 
     // Отправляем один IP пакет на сервер.
     public synchronized void sendPacket(byte[] packet) {
         // Если транспорт не подключен, пакет отправлять нельзя.
-        if (!running || socket == null || socket.isClosed()) {
+        if (!isConnected()) {
             return;
         }
 
@@ -83,16 +100,16 @@ public class TcpPacketTransport {
             // Принудительно отправляем данные в TCP.
             output.flush();
         } catch (Exception e) {
-            // При ошибке записи закрываем транспорт.
-            System.out.println("TCP packet send error: " + e.getMessage());
+            // При ошибке записи закрываем только TCP, Wintun этим не трогаем.
+            System.out.println("TCP packet send error: " + errorText(e));
             close();
         }
     }
 
     // Читаем один IP пакет от сервера.
     public byte[] readPacket() {
-        // Если транспорт уже остановлен, читать нечего.
-        if (!running) {
+        // Если транспорт не подключен, читать нечего.
+        if (!isConnected()) {
             return null;
         }
 
@@ -103,14 +120,14 @@ public class TcpPacketTransport {
             // Читаем размер IP пакета.
             int size = input.readInt();
 
-            // Если сервер прислал не VPN кадр, закрываем соединение.
+            // Если сервер прислал не VPN кадр, закрываем TCP соединение.
             if (frameType != FRAME_VPN) {
                 System.out.println("TCP VPN wrong frame type: " + frameType);
                 close();
                 return null;
             }
 
-            // Если размер неправильный, закрываем соединение.
+            // Если размер неправильный, закрываем TCP соединение.
             if (size <= 0 || size > MAX_PACKET_SIZE) {
                 close();
                 return null;
@@ -119,7 +136,7 @@ public class TcpPacketTransport {
             // Читаем IP пакет указанного размера.
             byte[] packet = input.readNBytes(size);
 
-            // Если пакет прочитан не полностью, закрываем соединение.
+            // Если пакет прочитан не полностью, закрываем TCP соединение.
             if (packet.length != size) {
                 close();
                 return null;
@@ -128,9 +145,9 @@ public class TcpPacketTransport {
             // Возвращаем пакет вызывающему коду.
             return packet;
         } catch (Exception e) {
-            // При ошибке чтения закрываем транспорт.
-            if (running) {
-                System.out.println("TCP packet read error: " + e.getMessage());
+            // При ошибке чтения закрываем только TCP, Wintun этим не трогаем.
+            if (connected) {
+                System.out.println("TCP packet read error: " + errorText(e));
             }
             close();
             return null;
@@ -138,9 +155,9 @@ public class TcpPacketTransport {
     }
 
     // Закрываем TCP транспорт.
-    public void close() {
-        // Помечаем транспорт как остановленный.
-        running = false;
+    public synchronized void close() {
+        // Помечаем транспорт как отключенный.
+        connected = false;
 
         try {
             // Закрываем TCP сокет, если он был открыт.
@@ -150,5 +167,16 @@ public class TcpPacketTransport {
         } catch (Exception ignored) {
             // Ошибка закрытия не важна.
         }
+
+        // Обнуляем ссылки на ресурсы.
+        socket = null;
+        input = null;
+        output = null;
+    }
+
+    // Делает текст ошибки понятным даже если getMessage() вернул null.
+    private String errorText(Exception e) {
+        // Возвращаем имя класса ошибки и её сообщение.
+        return e.getClass().getSimpleName() + ": " + e.getMessage();
     }
 }
