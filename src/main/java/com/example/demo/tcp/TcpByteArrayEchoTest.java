@@ -14,6 +14,7 @@ public class TcpByteArrayEchoTest {
     private static final String HOST = "80.240.23.72";
     private static final int PORT = 51890;
     private static final int TIMEOUT_MS = 5000;
+    private static final int FRAME_TEST = 1;
 
     private final SecureRandom random = new SecureRandom();
 
@@ -39,15 +40,18 @@ public class TcpByteArrayEchoTest {
         byte[] request = new byte[size];
         random.nextBytes(request);
 
+        output.writeByte(FRAME_TEST);
         output.writeInt(request.length);
         output.write(request);
         output.flush();
 
+        int responseFrameType = input.readUnsignedByte();
         int responseSize = input.readInt();
         byte[] response = input.readNBytes(responseSize);
 
         System.out.println(
-                "TCP BYTE TEST: size=" + size +
+                "TCP BYTE TEST: frame=" + responseFrameType +
+                        ", size=" + size +
                         ", received=" + response.length +
                         ", equals=" + Arrays.equals(request, response)
         );
