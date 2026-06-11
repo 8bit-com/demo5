@@ -14,6 +14,8 @@ public class TcpPacketTransport {
     private static final int PORT = 51890;
     private static final int MAX_PACKET_SIZE = 1200;
     private static final int FRAME_VPN = 2;
+    private static final int ICMP_PROTOCOL = 1;
+    private static final int ICMP_ECHO_REQUEST = 8;
 
     private final Consumer<byte[]> packetConsumer;
 
@@ -42,6 +44,7 @@ public class TcpPacketTransport {
 
     public synchronized void send(byte[] packet) {
         if (!running || socket == null || socket.isClosed()) {
+            System.out.println("TCP VPN SEND SKIP: transport is not running");
             return;
         }
 
@@ -51,6 +54,7 @@ public class TcpPacketTransport {
         }
 
         try {
+            printPingSend(packet);
             output.writeByte(FRAME_VPN);
             output.writeInt(packet.length);
             output.write(packet);
@@ -104,5 +108,25 @@ public class TcpPacketTransport {
                 stop();
             }
         }
+    }
+
+    private void printPingSend(byte[] packet) {
+        if (packet.length < 28) {
+            return;
+        }
+
+        int headerLength = (packet[0] & 0x0F) * 4;
+        int protocol = packet[9] & 0xFF;
+
+        if (protocol != ICMP_PROTOCOL || packet.length < headerLength + 8) {
+            return;
+        }
+
+        int icmpType = packet[headerLength] & 0xFF;
+        if (icmpType != ICMP_ECHO_REQUEST) {
+            return;
+        }
+
+        System.out.println("TCP VPN SEND PING: size=" + packet.length);
     }
 }
