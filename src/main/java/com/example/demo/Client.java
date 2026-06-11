@@ -1,5 +1,6 @@
 package com.example.demo;
 
+import com.example.demo.tcp.TcpByteArrayEchoTest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -11,12 +12,14 @@ public class Client {
 
     private final TestPing testPing;
     private final ByteArrayEchoTest byteArrayEchoTest;
+    private final TcpByteArrayEchoTest tcpByteArrayEchoTest;
     private final WintunAdapterTest wintunAdapterTest;
 
     @EventListener(ApplicationReadyEvent.class)
     public void start() {
         testPing.start();
         byteArrayEchoTest.start();
+        tcpByteArrayEchoTest.start();
         wintunAdapterTest.start();
     }
 }
