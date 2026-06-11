@@ -3,35 +3,74 @@ package com.example.demo.windows;
 import java.util.Arrays;
 import java.util.List;
 
+// Настраивает Windows сеть для Wintun адаптера.
 public class WintunNetworkConfigurator {
 
+    // Имя Wintun адаптера в Windows.
     private static final String ADAPTER_NAME = "Demo5Vpn";
-    private static final String CLIENT_IP = "10.8.0.2";
-    private static final String MASK = "255.255.255.0";
-    private static final String TEST_ROUTE = "10.8.0.1";
 
+    // IP адрес клиента внутри VPN сети.
+    private static final String CLIENT_IP = "10.8.0.2";
+
+    // Маска VPN сети.
+    private static final String MASK = "255.255.255.0";
+
+    // IP сервера внутри VPN сети, который должен уходить через Wintun.
+    private static final String SERVER_VPN_IP = "10.8.0.1";
+
+    // Запускает Windows команды.
     private final WindowsCommand windowsCommand = new WindowsCommand();
 
+    // Полностью настраивает адаптер перед запуском пересылки пакетов.
     public void configure() {
-        deleteTestRoute();
+        // Удаляем старый маршрут, если он остался после прошлого запуска.
+        deleteServerRoute();
+
+        // Включаем Wintun интерфейс.
+        enableAdapter();
+
+        // Назначаем Wintun адаптеру IP адрес.
         setAddress();
+
+        // Находим Windows index Wintun интерфейса.
         int interfaceIndex = findInterfaceIndex();
-        addTestRoute(interfaceIndex);
+
+        // Добавляем маршрут до VPN IP сервера через Wintun интерфейс.
+        addServerRoute(interfaceIndex);
     }
 
+    // Чистит маршрут при остановке клиента.
     public void cleanup() {
-        deleteTestRoute();
+        // Удаляем маршрут до VPN IP сервера.
+        deleteServerRoute();
     }
 
-    private void deleteTestRoute() {
+    // Удаляет маршрут до VPN IP сервера.
+    private void deleteServerRoute() {
+        // route delete 10.8.0.1
         windowsCommand.runIgnoreError(List.of(
                 "route",
                 "delete",
-                TEST_ROUTE
+                SERVER_VPN_IP
         ));
     }
 
+    // Включает Wintun интерфейс.
+    private void enableAdapter() {
+        // netsh interface set interface name=Demo5Vpn admin=enabled
+        windowsCommand.runIgnoreError(List.of(
+                "netsh",
+                "interface",
+                "set",
+                "interface",
+                "name=" + ADAPTER_NAME,
+                "admin=enabled"
+        ));
+    }
+
+    // Назначает IP адрес Wintun адаптеру.
     private void setAddress() {
+        // netsh interface ip set address name=Demo5Vpn static 10.8.0.2 255.255.255.0
         windowsCommand.run(List.of(
                 "netsh",
                 "interface",
@@ -45,7 +84,9 @@ public class WintunNetworkConfigurator {
         ));
     }
 
+    // Ищет Windows interface index по имени адаптера.
     private int findInterfaceIndex() {
+        // netsh interface ipv4 show interfaces
         String output = windowsCommand.run(List.of(
                 "netsh",
                 "interface",
@@ -54,6 +95,7 @@ public class WintunNetworkConfigurator {
                 "interfaces"
         ));
 
+        // Ищем строку, которая заканчивается именем Demo5Vpn.
         return Arrays.stream(output.split("\\R"))
                 .map(String::trim)
                 .filter(line -> line.endsWith(ADAPTER_NAME))
@@ -62,16 +104,22 @@ public class WintunNetworkConfigurator {
                 .orElseThrow(() -> new IllegalStateException("Interface not found: " + ADAPTER_NAME));
     }
 
+    // Достаёт interface index из первой колонки строки netsh.
     private int parseInterfaceIndex(String line) {
+        // Разбиваем строку netsh по пробелам.
         String[] parts = line.split("\\s+");
+
+        // Первая колонка — это interface index.
         return Integer.parseInt(parts[0]);
     }
 
-    private void addTestRoute(int interfaceIndex) {
+    // Добавляет маршрут до VPN IP сервера через Wintun интерфейс.
+    private void addServerRoute(int interfaceIndex) {
+        // route add 10.8.0.1 mask 255.255.255.255 0.0.0.0 if <index>
         windowsCommand.run(List.of(
                 "route",
                 "add",
-                TEST_ROUTE,
+                SERVER_VPN_IP,
                 "mask",
                 "255.255.255.255",
                 "0.0.0.0",
