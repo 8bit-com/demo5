@@ -12,6 +12,9 @@ public class WintunTcpForwarder {
 
     private static final int SESSION_CAPACITY = 4 * 1024 * 1024;
     private static final int EMPTY_READ_SLEEP_MS = 10;
+    private static final int ICMP_PROTOCOL = 1;
+    private static final int ICMP_ECHO_REQUEST = 8;
+    private static final int ICMP_ECHO_REPLY = 0;
 
     private final Pointer adapter;
     private final AtomicBoolean running = new AtomicBoolean(true);
@@ -34,7 +37,7 @@ public class WintunTcpForwarder {
                     continue;
                 }
 
-                printPacket("CLIENT TUN RX", packet);
+                printPing("CLIENT PING REQUEST", packet, ICMP_ECHO_REQUEST);
                 tcpPacketTransport.send(packet);
             }
         } finally {
@@ -72,7 +75,7 @@ public class WintunTcpForwarder {
             return;
         }
 
-        printPacket("CLIENT TUN TX", packet);
+        printPing("CLIENT PING REPLY", packet, ICMP_ECHO_REPLY);
 
         Pointer sendPointer = Wintun.INSTANCE.WintunAllocateSendPacket(session, packet.length);
 
@@ -93,28 +96,33 @@ public class WintunTcpForwarder {
         }
     }
 
-    private void printPacket(String prefix, byte[] packet) {
-        if (packet.length < 20) {
-            System.out.println(prefix + ": size=" + packet.length + ", not IPv4");
+    private void printPing(String prefix, byte[] packet, int expectedType) {
+        if (packet.length < 28) {
             return;
         }
 
-        int version = (packet[0] >> 4) & 0x0F;
         int headerLength = (packet[0] & 0x0F) * 4;
         int protocol = packet[9] & 0xFF;
 
-        String extra = "";
-        if (protocol == 1 && packet.length > headerLength) {
-            extra = ", icmpType=" + (packet[headerLength] & 0xFF);
+        if (protocol != ICMP_PROTOCOL || packet.length < headerLength + 8) {
+            return;
         }
 
-        System.out.println(prefix + ": size=" + packet.length
-                + ", version=" + version
-                + ", ihl=" + headerLength
-                + ", protocol=" + protocol
-                + ", src=" + ipToString(packet, 12)
+        int icmpType = packet[headerLength] & 0xFF;
+        if (icmpType != expectedType) {
+            return;
+        }
+
+        int icmpId = ((packet[headerLength + 4] & 0xFF) << 8) | (packet[headerLength + 5] & 0xFF);
+        int icmpSeq = ((packet[headerLength + 6] & 0xFF) << 8) | (packet[headerLength + 7] & 0xFF);
+
+        System.out.println(prefix
+                + ": src=" + ipToString(packet, 12)
                 + ", dst=" + ipToString(packet, 16)
-                + extra);
+                + ", type=" + icmpType
+                + ", id=" + icmpId
+                + ", seq=" + icmpSeq
+                + ", size=" + packet.length);
     }
 
     private String ipToString(byte[] packet, int offset) {
