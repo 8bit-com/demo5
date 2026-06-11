@@ -10,15 +10,11 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class Client {
 
-    private final TestPing testPing;
-    private final ByteArrayEchoTest byteArrayEchoTest;
     private final TcpByteArrayEchoTest tcpByteArrayEchoTest;
     private final WintunAdapterTest wintunAdapterTest;
 
     @EventListener(ApplicationReadyEvent.class)
     public void start() {
-        testPing.start();
-        byteArrayEchoTest.start();
         tcpByteArrayEchoTest.start();
         wintunAdapterTest.start();
     }
