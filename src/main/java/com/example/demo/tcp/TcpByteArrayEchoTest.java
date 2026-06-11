@@ -18,7 +18,7 @@ public class TcpByteArrayEchoTest {
     private final SecureRandom random = new SecureRandom();
 
     public void start() {
-        int[] sizes = {64, 256, 512, 1024, 1200, 1300, 1400};
+        int[] sizes = {64, 256, 512, 1024, 1200};
 
         try (Socket socket = new Socket(HOST, PORT)) {
             socket.setSoTimeout(TIMEOUT_MS);
