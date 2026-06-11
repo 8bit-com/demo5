@@ -18,7 +18,7 @@ public class WintunTcpForwarder {
 
     private final Pointer adapter;
     private final AtomicBoolean running = new AtomicBoolean(true);
-    private final TcpPacketTransport tcpPacketTransport = new TcpPacketTransport(this::writeToTun);
+    private final TcpPacketTransport tcpPacketTransport = new TcpPacketTransport();
 
     private Pointer session;
 
@@ -38,7 +38,11 @@ public class WintunTcpForwarder {
                 }
 
                 printPing("CLIENT PING REQUEST", packet, ICMP_ECHO_REQUEST);
-                tcpPacketTransport.send(packet);
+
+                byte[] response = tcpPacketTransport.request(packet);
+                if (response != null) {
+                    writeToTun(response);
+                }
             }
         } finally {
             stop();
